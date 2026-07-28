@@ -30,7 +30,7 @@ files = dir(fullfile(folder, '*.csv'));
 combined = struct();   % persists across channels -- NOT reset inside the loop
 
 col_start = 4;
-col_end = 5;
+col_end = 7;
 for col_idx = col_start:col_end % depends upon the csv file channels sequences
 
     uz_num    = col_idx - 2;          % col 3 -> Uz1, col 4 -> Uz2, ... col 18 -> Uz16
@@ -635,7 +635,7 @@ for col_idx = col_start:col_end % depends upon the csv file channels sequences
     savefig(fig_tbl, fullfile(uz_folder, 'summary_data_tables.fig'));
     close(fig_tbl);
 
-    
+
     fprintf('\n--- Finished %s ---\n', uz_label);
 
 end  % end col_idx loop (Uz1-Uz16)
