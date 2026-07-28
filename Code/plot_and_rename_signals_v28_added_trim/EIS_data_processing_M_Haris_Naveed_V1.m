@@ -27,6 +27,7 @@ files = dir(fullfile(folder, '*.csv'));
 %% OUTER LOOP: iterate over each voltage channel Uz1-Uz16 (columns 3-18)
 % ===========================================================================
 
+combined = struct();   % persists across channels -- NOT reset inside the loop
 for col_idx = 3:7 % depends upon the csv file channels sequences
 
     uz_num    = col_idx - 2;          % col 3 -> Uz1, col 4 -> Uz2, ... col 18 -> Uz16
@@ -423,7 +424,6 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
     fprintf('\n%d raw files -> %d averaged frequency points\n', length(freqs_tmp), length(all_freqs));
 
 
-
     % ===============================================================
     %%  Ploting==============BODE PLOTS -- Linear Frequency Scale & Log Frequency Scale================
     % ===============================================================
@@ -497,6 +497,15 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
 
     Z1_raw = all_Z1_peak_raw(sortIdx);   % complex, Ohm
     Z1_s   = all_Z1_peak_s(sortIdx);     % complex, Ohm
+
+    combined.(uz_label).freqs     = all_freqs_sorted;
+    combined.(uz_label).mag_raw   = all_mag_Z1_raw;    % already sorted earlier (Bode section)
+    combined.(uz_label).mag_s     = all_mag_Z1_s;      % already sorted earlier (Bode section)
+    combined.(uz_label).phase_raw = all_phase_V1I_raw; % already sorted earlier (Bode section)
+    combined.(uz_label).phase_s   = all_phase_V1I_s;   % already sorted earlier (Bode section)
+    combined.(uz_label).Zpeak_raw = Z1_raw;
+    combined.(uz_label).Zpeak_s   = Z1_s;
+
 
     % -- Extract Re / -Im -------------------------------------------------
     x_Z1_raw =  real(Z1_raw);   y_Z1_raw = -imag(Z1_raw);
@@ -623,11 +632,125 @@ disp('All channels processed.');
 
 
 
+
+
+
+
+%% ---------------------  COMBINED MULTI-CHANNEL PLOTS  ---------------------------------------
+
+chLabels = fieldnames(combined);
+nCh      = numel(chLabels);
+cmap     = lines(nCh);
+
+xScalesC   = {'linear', 'log'};
+figTitlesC = {'Combined Bode Plot -- All Channels -- Linear Frequency Scale', ...
+              'Combined Bode Plot -- All Channels -- Logarithmic Frequency Scale'};
+fileNamesC = {'combined_bode_linear', 'combined_bode_log'};
+
+for p = 1:2
+    fig = figure('Name', figTitlesC{p}, 'NumberTitle','off', 'Color','w', 'Position',[80 80 1200 650]);
+
+    rawLines = gobjects(nCh,1);
+    sLines   = gobjects(nCh,1);
+
+    yyaxis left
+    hold on;
+    for c = 1:nCh
+        d = combined.(chLabels{c});
+        col = cmap(c,:);
+        rawLines(c) = plot(d.freqs, d.mag_raw, '--', 'Color', col, 'LineWidth',1.3, ...
+            'Marker','o','MarkerSize',4, 'DisplayName',[chLabels{c} ' Raw'], 'HandleVisibility','off');
+        sLines(c) = plot(d.freqs, d.mag_s, '-', 'Color', col, 'LineWidth',1.6, ...
+            'Marker','o','MarkerSize',4, 'DisplayName',[chLabels{c} ' Smoothed']);
+    end
+    ylabel('Z_1 Impedance (m\Omega)', 'FontSize',11, 'FontWeight','bold');
+
+    yyaxis right
+    hold on;
+    for c = 1:nCh
+        d = combined.(chLabels{c});
+        col = cmap(c,:);
+        plot(d.freqs, d.phase_raw, '--', 'Color', col, 'LineWidth',1.0, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
+        plot(d.freqs, d.phase_s, '-', 'Color', col, 'LineWidth',1.3, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
+    end
+    ylabel('Phase (deg)', 'FontSize',11, 'FontWeight','bold');
+
+    set(gca, 'XScale', xScalesC{p});
+    xlabel('Frequency (Hz)', 'FontSize',11, 'FontWeight','bold');
+    title(figTitlesC{p}, 'FontSize',13, 'FontWeight','bold');
+    legend(sLines, 'Location','eastoutside', 'FontSize',9, 'Box','on');
+    grid on; box on;
+    ax = gca; ax.FontSize = 10; ax.LineWidth = 1.0;
+
+    uicontrol(fig, 'Style','checkbox', 'String','Show Raw', 'Units','normalized', ...
+        'Position',[0.01 0.95 0.15 0.04], 'Value',1, 'BackgroundColor','w', ...
+        'Callback', @(src,~) set(rawLines, 'Visible', logical_to_vis(src.Value)));
+
+    uicontrol(fig, 'Style','checkbox', 'String','Show Smoothed', 'Units','normalized', ...
+        'Position',[0.01 0.90 0.18 0.04], 'Value',1, 'BackgroundColor','w', ...
+        'Callback', @(src,~) set(sLines, 'Visible', logical_to_vis(src.Value)));
+
+    savefig(fig, fullfile(out_folder, [fileNamesC{p} '.fig']));
+    saveas(fig, fullfile(out_folder, [fileNamesC{p} '.png']));
+    close(fig);
+end
+
+fig_ny = figure('Name', 'Combined Nyquist Plot -- All Channels', 'Color','w', 'Position',[80 80 1100 750]);
+hold on; grid on; box on;
+
+rawLinesNy = gobjects(nCh,1);
+sLinesNy   = gobjects(nCh,1);
+
+for c = 1:nCh
+    d   = combined.(chLabels{c});
+    col = cmap(c,:);
+    x_raw =  real(d.Zpeak_raw);  y_raw = -imag(d.Zpeak_raw);
+    x_s   =  real(d.Zpeak_s);    y_s   = -imag(d.Zpeak_s);
+
+    rawLinesNy(c) = plot(x_raw, y_raw, 'o--', 'Color', col, 'LineWidth',1.3, ...
+        'MarkerSize',5, 'MarkerFaceColor','w', 'DisplayName',[chLabels{c} ' Raw'], 'HandleVisibility','off');
+    sLinesNy(c) = plot(x_s, y_s, 'o-', 'Color', col, 'LineWidth',1.7, ...
+        'MarkerSize',5, 'MarkerFaceColor',col, 'DisplayName',[chLabels{c} ' Smoothed']);
+end
+
+xline(0, ':', 'Color',[0.65 0.65 0.65], 'LineWidth',0.8, 'HandleVisibility','off');
+yline(0, ':', 'Color',[0.65 0.65 0.65], 'LineWidth',0.8, 'HandleVisibility','off');
+
+xlabel('Re(Z)  [\Omega]', 'FontSize',13, 'FontWeight','bold');
+ylabel('-Im(Z)  [\Omega]', 'FontSize',13, 'FontWeight','bold');
+title('Combined Nyquist Plot -- All Channels', 'FontSize',14, 'FontWeight','bold');
+legend(sLinesNy, 'Location','eastoutside', 'FontSize',9, 'Box','on');
+
+ax = gca; ax.FontSize = 11; ax.LineWidth = 1.1; ax.XMinorGrid = 'on'; ax.YMinorGrid = 'on';
+axis equal;
+hold off;
+
+uicontrol(fig_ny, 'Style','checkbox', 'String','Show Raw', 'Units','normalized', ...
+    'Position',[0.01 0.95 0.15 0.04], 'Value',1, 'BackgroundColor','w', ...
+    'Callback', @(src,~) set(rawLinesNy, 'Visible', logical_to_vis(src.Value)));
+
+uicontrol(fig_ny, 'Style','checkbox', 'String','Show Smoothed', 'Units','normalized', ...
+    'Position',[0.01 0.90 0.18 0.04], 'Value',1, 'BackgroundColor','w', ...
+    'Callback', @(src,~) set(sLinesNy, 'Visible', logical_to_vis(src.Value)));
+
+savefig(fig_ny, fullfile(out_folder, 'combined_nyquist.fig'));
+saveas(fig_ny, fullfile(out_folder, 'combined_nyquist.png'));
+close(fig_ny);
+
+disp('Combined multi-channel plots complete.');
+
+
 % ============================================================================================
 %% ---------------------  Functions Definitions ---------------------------------------
 % ============================================================================================
 
-
+function v = logical_to_vis(val)
+    if val
+        v = 'on';
+    else
+        v = 'off';
+    end
+end
 
 
 % ---------------------------------------------
