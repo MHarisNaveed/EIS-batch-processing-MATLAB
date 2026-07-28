@@ -28,7 +28,10 @@ files = dir(fullfile(folder, '*.csv'));
 % ===========================================================================
 
 combined = struct();   % persists across channels -- NOT reset inside the loop
-for col_idx = 3:7 % depends upon the csv file channels sequences
+
+col_start = 4;
+col_end = 5;
+for col_idx = col_start:col_end % depends upon the csv file channels sequences
 
     uz_num    = col_idx - 2;          % col 3 -> Uz1, col 4 -> Uz2, ... col 18 -> Uz16
     uz_label  = sprintf('Uz%d', uz_num);
@@ -174,10 +177,13 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
                 newpath = fullfile(uz_folder, newname);
             end
 
-            % Duplicate instead of renaming
-            copyfile(fullpath, newpath);
-            % movefile(fullpath, newpath);
-            fprintf('\nRenamed "%s" -> "%s" | Freq: %.2f Hz\n', filename, newname, final_freq);
+            % Duplicate original CSV only once (first channel processed) --
+            % all other channels reference the same underlying raw file, so
+            % copying it again per channel is redundant.
+            if col_idx == col_start
+                copyfile(fullpath, newpath);
+                fprintf('\nRenamed "%s" -> "%s" | Freq: %.2f Hz\n', filename, newname, final_freq);
+            end
 
 
 
@@ -224,9 +230,10 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
             legend('Raw','Smoothed');
             grid on;
 
-            % Save plot as JPG
+            % Save plot as JPG + FIG
             [~, base, ~] = fileparts(newname);
             saveas(gcf, fullfile(uz_folder, [base, '_plot.jpg']));
+            savefig(gcf, fullfile(uz_folder, [base, '_plot.fig']));
             close(gcf);
 
 
@@ -354,6 +361,7 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
             'Position',[0 0 1 1], ...
             'FontSize',10);
     saveas(fig_table, fullfile(uz_folder, 'summary_table_figure.png'));
+    savefig(fig_table, fullfile(uz_folder, 'summary_table_figure.fig'));
     close(fig_table);
 
     % Save to CSV
@@ -476,7 +484,9 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
         sgtitle(figTitles{p}, 'FontSize',14, 'FontWeight','bold');
 
         % -- Save ----------------------------------------------------------
+        [~, bodeBase, ~] = fileparts(fileNames{p});
         saveas(fig, fullfile(uz_folder, fileNames{p}));
+        savefig(fig, fullfile(uz_folder, [bodeBase, '.fig']));
         fprintf('Saved: %s\n', fullfile(uz_folder, fileNames{p}));
         close(fig);
 
@@ -572,6 +582,7 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
 
     %% -- Save -------------------------------------------------------------
     saveas(fig_ny, fullfile(uz_folder, 'nyquist_plot.png'));
+    savefig(fig_ny, fullfile(uz_folder, 'nyquist_plot.fig'));
     fprintf('Nyquist plot saved -> %s\n', fullfile(uz_folder, 'nyquist_plot.png'));
     close(fig_ny);
 
@@ -621,8 +632,10 @@ for col_idx = 3:7 % depends upon the csv file channels sequences
     title('Smoothed Data Table');
 
     saveas(fig_tbl, fullfile(uz_folder, 'summary_data_tables.png'));
+    savefig(fig_tbl, fullfile(uz_folder, 'summary_data_tables.fig'));
     close(fig_tbl);
 
+    
     fprintf('\n--- Finished %s ---\n', uz_label);
 
 end  % end col_idx loop (Uz1-Uz16)
