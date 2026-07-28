@@ -663,8 +663,10 @@ fileNamesC = {'combined_bode_linear', 'combined_bode_log'};
 for p = 1:2
     fig = figure('Name', figTitlesC{p}, 'NumberTitle','off', 'Color','w', 'Position',[80 80 1200 650]);
 
-    rawLines = gobjects(nCh,1);
+     rawLines = gobjects(nCh,1);
     sLines   = gobjects(nCh,1);
+    rawLinesPhase = gobjects(nCh,1);
+    sLinesPhase   = gobjects(nCh,1);
 
     yyaxis left
     hold on;
@@ -683,10 +685,11 @@ for p = 1:2
     for c = 1:nCh
         d = combined.(chLabels{c});
         col = cmap(c,:);
-        plot(d.freqs, d.phase_raw, '--', 'Color', col, 'LineWidth',1.0, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
-        plot(d.freqs, d.phase_s, '-', 'Color', col, 'LineWidth',1.3, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
+        rawLinesPhase(c) = plot(d.freqs, d.phase_raw, '--', 'Color', col, 'LineWidth',1.0, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
+        sLinesPhase(c) = plot(d.freqs, d.phase_s, '-', 'Color', col, 'LineWidth',1.3, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
     end
     ylabel('Phase (deg)', 'FontSize',11, 'FontWeight','bold');
+
 
     set(gca, 'XScale', xScalesC{p});
     xlabel('Frequency (Hz)', 'FontSize',11, 'FontWeight','bold');
@@ -695,13 +698,21 @@ for p = 1:2
     grid on; box on;
     ax = gca; ax.FontSize = 10; ax.LineWidth = 1.0;
 
-    uicontrol(fig, 'Style','checkbox', 'String','Show Raw', 'Units','normalized', ...
-        'Position',[0.01 0.95 0.15 0.04], 'Value',1, 'BackgroundColor','w', ...
+    uicontrol(fig, 'Style','checkbox', 'String','Show Raw Mag', 'Units','normalized', ...
+        'Position',[0.01 0.95 0.18 0.04], 'Value',1, 'BackgroundColor','w', ...
         'Callback', @(src,~) set(rawLines, 'Visible', logical_to_vis(src.Value)));
 
-    uicontrol(fig, 'Style','checkbox', 'String','Show Smoothed', 'Units','normalized', ...
-        'Position',[0.01 0.90 0.18 0.04], 'Value',1, 'BackgroundColor','w', ...
+    uicontrol(fig, 'Style','checkbox', 'String','Show Smoothed Mag', 'Units','normalized', ...
+        'Position',[0.01 0.90 0.20 0.04], 'Value',1, 'BackgroundColor','w', ...
         'Callback', @(src,~) set(sLines, 'Visible', logical_to_vis(src.Value)));
+
+    uicontrol(fig, 'Style','checkbox', 'String','Show Raw Phase', 'Units','normalized', ...
+        'Position',[0.01 0.85 0.20 0.04], 'Value',1, 'BackgroundColor','w', ...
+        'Callback', @(src,~) set(rawLinesPhase, 'Visible', logical_to_vis(src.Value)));
+
+    uicontrol(fig, 'Style','checkbox', 'String','Show Smoothed Phase', 'Units','normalized', ...
+        'Position',[0.01 0.80 0.22 0.04], 'Value',1, 'BackgroundColor','w', ...
+        'Callback', @(src,~) set(sLinesPhase, 'Visible', logical_to_vis(src.Value)));
 
     savefig(fig, fullfile(out_folder, [fileNamesC{p} '.fig']));
     saveas(fig, fullfile(out_folder, [fileNamesC{p} '.png']));
