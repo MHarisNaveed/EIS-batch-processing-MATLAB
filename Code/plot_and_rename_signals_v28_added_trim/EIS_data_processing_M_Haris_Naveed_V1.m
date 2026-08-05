@@ -29,8 +29,9 @@ files = dir(fullfile(folder, '*.csv'));
 
 combined = struct();   % persists across channels -- NOT reset inside the loop
 
-col_start = 4;
-col_end = 7;
+col_start = 2;
+col_end = 6;
+%for col_idx = [4,5, 7]
 for col_idx = col_start:col_end % depends upon the csv file channels sequences
 
     uz_num    = col_idx - 2;          % col 3 -> Uz1, col 4 -> Uz2, ... col 18 -> Uz16
@@ -128,8 +129,8 @@ for col_idx = col_start:col_end % depends upon the csv file channels sequences
 
 
             % Extract other signals and convert to double
-            v_shunt  = double(T{:,2});
-            current  = (v_shunt / -0.0075);
+            v_shunt  = double(T{:,7});
+            current  = (v_shunt / -0.00619);
             voltage1 = double(T{:, col_idx});   % active channel for this iteration
 
             % % Trim first and last 10% -- keep middle 80% only
