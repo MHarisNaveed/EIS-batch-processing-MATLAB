@@ -20,19 +20,48 @@ end
 
 % Get all CSV files in folder
 files = dir(fullfile(folder, '*.csv'));
+if isempty(files)
+    error('No CSV files found in selected folder.');
+end
 
 
 
 % ===========================================================================
-%% OUTER LOOP: iterate over each voltage channel Uz1-Uz16 (columns 3-18)
+%% Column Selection GUI (voltage channels + current/shunt column)
+% ===========================================================================
+% Hand-edit these two lines to change what the GUI pre-ticks by default.
+% Numbers are 1-based column indices, matching T{:, idx} (T col 1 = time,
+% T col 2 = Ushunt, T col 3 = Uz1, T col 4 = Uz2, ... same order as CSV).
+PRESET_VOLTAGE_COLS = [3 4 5 6 7];   % e.g. Uz1..Uz5
+PRESET_CURRENT_COL  = 2;             % Ushunt column
+PRESET_SHUNT_OHMS   = 0.075;         % shunt resistance, Ohms
+
+% Read row 5 (TraceName) of the first CSV for real column labels
+sampleFile   = fullfile(folder, files(1).name);
+traceRow     = readcell(sampleFile, 'Range', '5:5');
+headerNames  = cellfun(@(x) strtrim(string(x)), traceRow, 'UniformOutput', false);
+headerNames  = [headerNames{:}];   % 1xN string array, index N matches T column N
+nColsAvail   = numel(headerNames);
+
+[col_list, current_col_idx, shunt_ohms] = select_columns_gui(headerNames, PRESET_VOLTAGE_COLS, PRESET_CURRENT_COL, PRESET_SHUNT_OHMS);
+
+if isempty(col_list)
+    disp('No voltage columns selected. Exiting.');
+    return;
+end
+fprintf('\nSelected voltage columns: %s\n', mat2str(col_list));
+fprintf('Selected current column: %d (%s)\n', current_col_idx, headerNames(current_col_idx));
+fprintf('Shunt resistance: %.6f Ohm\n\n', shunt_ohms);
+
+
+
+% ===========================================================================
+%% OUTER LOOP: iterate over each selected voltage channel
 % ===========================================================================
 
 combined = struct();   % persists across channels -- NOT reset inside the loop
 
-col_start = 2;
-col_end = 6;
-%for col_idx = [4,5, 7]
-for col_idx = col_start:col_end % depends upon the csv file channels sequences
+for col_idx = col_list % now iterates over GUI-selected columns, not a fixed range
 
     uz_num    = col_idx - 2;          % col 3 -> Uz1, col 4 -> Uz2, ... col 18 -> Uz16
     uz_label  = sprintf('Uz%d', uz_num);
@@ -129,8 +158,8 @@ for col_idx = col_start:col_end % depends upon the csv file channels sequences
 
 
             % Extract other signals and convert to double
-            v_shunt  = double(T{:,7});
-            current  = (v_shunt / -0.00619);
+            v_shunt  = double(T{:, current_col_idx});
+            current  = (v_shunt / -shunt_ohms);
             voltage1 = double(T{:, col_idx});   % active channel for this iteration
 
             % % Trim first and last 10% -- keep middle 80% only
@@ -178,14 +207,13 @@ for col_idx = col_start:col_end % depends upon the csv file channels sequences
                 newpath = fullfile(uz_folder, newname);
             end
 
-            % Duplicate original CSV only once (first channel processed) --
+             % Duplicate original CSV only once (first channel processed) --
             % all other channels reference the same underlying raw file, so
             % copying it again per channel is redundant.
-            if col_idx == col_start
+            if col_idx == col_list(1)
                 copyfile(fullpath, newpath);
                 fprintf('\nRenamed "%s" -> "%s" | Freq: %.2f Hz\n', filename, newname, final_freq);
             end
-
 
 
 
@@ -466,11 +494,11 @@ for col_idx = col_start:col_end % depends upon the csv file channels sequences
         ylabel(['Z_1 Impedance (m\Omega) -- ' uz_label], 'FontSize',11, 'FontWeight','bold');
 
         yyaxis right
-        plot(all_freqs, all_phase_V1I_raw, '-sr', 'LineWidth',1.5, ...
-             'MarkerSize',5, 'DisplayName','Phase Z_1 Raw');
+        plot(all_freqs, all_phase_V1I_raw, '-', 'Color','r', 'LineWidth',0.8, ...
+             'Marker','pentagram', 'MarkerSize',6, 'DisplayName','Phase Z_1 Raw');
         hold on;
-        plot(all_freqs, all_phase_V1I_s,   '--sm', 'LineWidth',1.5, ...
-             'MarkerSize',5, 'DisplayName','Phase Z_1 Smoothed');
+        plot(all_freqs, all_phase_V1I_s,   '--', 'Color','m', 'LineWidth',0.8, ...
+             'Marker','pentagram', 'MarkerSize',6, 'DisplayName','Phase Z_1 Smoothed');
         ylabel('Phase (deg)', 'FontSize',11, 'FontWeight','bold');
 
         set(gca, 'XScale', xScales{p});
@@ -686,8 +714,8 @@ for p = 1:2
     for c = 1:nCh
         d = combined.(chLabels{c});
         col = cmap(c,:);
-        rawLinesPhase(c) = plot(d.freqs, d.phase_raw, '--', 'Color', col, 'LineWidth',1.0, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
-        sLinesPhase(c) = plot(d.freqs, d.phase_s, '-', 'Color', col, 'LineWidth',1.3, 'Marker','s','MarkerSize',4, 'HandleVisibility','off');
+        rawLinesPhase(c) = plot(d.freqs, d.phase_raw, '--', 'Color', col, 'LineWidth',0.6, 'Marker','pentagram','MarkerSize',5, 'HandleVisibility','off');
+        sLinesPhase(c) = plot(d.freqs, d.phase_s, '-', 'Color', col, 'LineWidth',0.8, 'Marker','pentagram','MarkerSize',5, 'HandleVisibility','off');
     end
     ylabel('Phase (deg)', 'FontSize',11, 'FontWeight','bold');
 
@@ -776,6 +804,77 @@ function v = logical_to_vis(val)
         v = 'off';
     end
 end
+
+
+% ---------------------------------------------
+%% Helper: column selection GUI (voltage checkboxes + current radio)
+% ---------------------------------------------
+function [selectedCols, selectedCurrentCol, shuntOhms] = select_columns_gui(headerNames, presetVoltageCols, presetCurrentCol, presetShuntOhms)
+
+    nCols = numel(headerNames);
+    rowH  = 22;
+    listH = rowH * nCols;
+    figH  = 200 + listH;          % extra room for title, dropdown, shunt field, button
+    figH  = min(figH, 700);
+    fig = uifigure('Name','Select Columns', 'Position',[400 200 460 figH]);
+
+    uilabel(fig, 'Text','Voltage columns (tick all that apply):', ...
+        'Position',[20 figH-30 380 22], 'FontWeight','bold');
+
+    % Scrollable panel holds the checkboxes so they never overlap the button
+    panelH = figH - 190;   % leaves room for label above + dropdown/shunt/button below
+    panel = uipanel(fig, 'Position',[20 150 380 panelH], 'Scrollable','on');
+
+    voltageCB = gobjects(nCols,1);
+    for k = 1:nCols
+        yPos = listH - rowH*k;    % stacked top-down inside the panel's own coords
+        voltageCB(k) = uicheckbox(panel, 'Text', sprintf('%d: %s', k, headerNames(k)), ...
+            'Position',[10 yPos 340 22], ...
+            'Value', ismember(k, presetVoltageCols));
+    end
+
+    uilabel(fig, 'Text','Current / shunt column (pick one):', ...
+        'Position',[20 115 380 22], 'FontWeight','bold');
+    currentDD = uidropdown(fig, ...
+        'Items', arrayfun(@(k) sprintf('%d: %s', k, headerNames(k)), 1:nCols, 'UniformOutput', false), ...
+        'Value', sprintf('%d: %s', presetCurrentCol, headerNames(presetCurrentCol)), ...
+        'Position',[20 85 380 26]);
+
+    uilabel(fig, 'Text','Shunt resistance (Ohm):', ...
+        'Position',[20 50 200 22], 'FontWeight','bold');
+    shuntField = uieditfield(fig, 'numeric', ...
+        'Value', presetShuntOhms, ...
+        'Limits', [eps Inf], ...
+        'Position',[220 50 150 26]);
+
+    okPressed = false;
+    uibutton(fig, 'Text','OK', 'Position',[160 10 100 28], ...
+        'ButtonPushedFcn', @(~,~) okCallback());
+
+    uiwait(fig);
+
+    function okCallback()
+        okPressed = true;
+        uiresume(fig);
+    end
+
+    if ~okPressed
+        selectedCols = [];
+        selectedCurrentCol = presetCurrentCol;
+        shuntOhms = presetShuntOhms;
+    else
+        selectedCols = find(arrayfun(@(cb) cb.Value, voltageCB));
+        selectedCols = selectedCols(:)';   % force row vector so `for col_idx = col_list` iterates one column at a time
+        ddStr = currentDD.Value;
+        selectedCurrentCol = sscanf(ddStr, '%d:');
+        shuntOhms = shuntField.Value;
+    end
+
+    if isvalid(fig)
+        close(fig);
+    end
+end
+
 
 
 % ---------------------------------------------
