@@ -34,7 +34,7 @@ end
 % T col 2 = Ushunt, T col 3 = Uz1, T col 4 = Uz2, ... same order as CSV).
 PRESET_VOLTAGE_COLS = [3 4 5 6 7];   % e.g. Uz1..Uz5
 PRESET_CURRENT_COL  = 2;             % Ushunt column
-PRESET_SHUNT_OHMS   = 0.075;         % shunt resistance, Ohms
+PRESET_SHUNT_OHMS   = 0.0075;         % shunt resistance, Ohms
 
 % Read row 5 (TraceName) of the first CSV for real column labels
 sampleFile   = fullfile(folder, files(1).name);
