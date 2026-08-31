@@ -77,18 +77,19 @@ for col_idx = col_list % now iterates over GUI-selected columns, not a fixed ran
     % =========================================================================
 
 
+nFiles = length(files);
 
-    all_freqs         = [];  % dominant frequency per file
+% Preallocate all arrays with exact size
+all_freqs         = zeros(1, nFiles);
+all_mag_Z1_raw    = zeros(1, nFiles);
+all_mag_Z1_s      = zeros(1, nFiles);
+all_phase_V1I_raw = zeros(1, nFiles);
+all_phase_V1I_s   = zeros(1, nFiles);
+all_Z1_peak_raw   = zeros(1, nFiles);
+all_Z1_peak_s     = zeros(1, nFiles);
+T_summary_data    = cell(nFiles, 14);  % 14 columns in summary
 
-    % Z1
-    all_mag_Z1_raw    = [];  % raw magnitude (mOhm)
-    all_mag_Z1_s      = [];  % smoothed magnitude (mOhm)
-    all_phase_V1I_raw = [];  % raw phase (deg)
-    all_phase_V1I_s   = [];  % smoothed phase (deg)
-    all_Z1_peak_raw   = [];  % raw complex Z1 at peak
-    all_Z1_peak_s     = [];  % smoothed complex Z1 at peak
-
-    T_summary_data = {};
+processed_count = 0;  % Track how many files actually processed
 
 
 
@@ -98,11 +99,11 @@ for col_idx = col_list % now iterates over GUI-selected columns, not a fixed ran
     % ======================================================================
 
 
-    for k = 1:length(files)
-        filename = files(k).name;
-        fullpath = fullfile(folder, filename);
+    for k = 1:nFiles
+    filename = files(k).name;
+    fullpath = fullfile(folder, filename);
 
-        try
+    try
             % Read using readtable to handle mixed-type content
             opts = detectImportOptions(fullpath, 'NumHeaderLines', 15);
             T = readtable(fullpath, opts);
@@ -193,8 +194,10 @@ for col_idx = col_list % now iterates over GUI-selected columns, not a fixed ran
             [freq_v1, amp_v1] = estimate_freq_amp(voltage1, t);
 
             % Use median to reduce outlier effect
-            final_freq = median([freq_c, freq_v1]);
+            %final_freq = median([freq_c, freq_v1]);
+            final_freq = freq_c
             final_amp  = median([amp_c,  amp_v1]);  %usless btw
+
 
             % --- New file name with datetime + frequency + channel label ---
             newname = sprintf('Renamed_%s_%s_%dHz.csv', uz_label, dt_str, abs(round(final_freq)));
@@ -332,22 +335,36 @@ for col_idx = col_list % now iterates over GUI-selected columns, not a fixed ran
     % ============================================================================================
 
             % Store the dominant frequency and corresponding phases
-            all_freqs(end+1)         = main_freq;
+             processed_count = processed_count + 1;
+        
+        % Store at current position (fast indexed assignment)
+        all_freqs(processed_count)         = main_freq;
+        all_mag_Z1_raw(processed_count)    = Z1_mag_raw;
+        all_mag_Z1_s(processed_count)      = Z1_mag_s;
+        all_phase_V1I_raw(processed_count) = Z1_phase_raw;
+        all_phase_V1I_s(processed_count)   = Z1_phase_s;
+        all_Z1_peak_raw(processed_count)   = Z1_peak_raw;
+        all_Z1_peak_s(processed_count)     = Z1_peak_s;
+        T_summary_data(processed_count, :) = row;
 
-            all_mag_Z1_raw(end+1)    = Z1_mag_raw;
-            all_mag_Z1_s(end+1)      = Z1_mag_s;
-            all_phase_V1I_raw(end+1) = Z1_phase_raw;
-            all_phase_V1I_s(end+1)   = Z1_phase_s;
-            all_Z1_peak_raw(end+1)   = Z1_peak_raw;
-            all_Z1_peak_s(end+1)     = Z1_peak_s;
+    catch ME
+        warning('Error processing "%s" [%s]: %s', filename, uz_label, ME.message);
+    end
+end  % end inner file loop
 
-        catch ME
-            warning('Error processing "%s" [%s]: %s', filename, uz_label, ME.message);
-        end
-    end  % end inner file loop
+% Trim to actual processed count (in case of errors)
+if processed_count < nFiles
+    all_freqs         = all_freqs(1:processed_count);
+    all_mag_Z1_raw    = all_mag_Z1_raw(1:processed_count);
+    all_mag_Z1_s      = all_mag_Z1_s(1:processed_count);
+    all_phase_V1I_raw = all_phase_V1I_raw(1:processed_count);
+    all_phase_V1I_s   = all_phase_V1I_s(1:processed_count);
+    all_Z1_peak_raw   = all_Z1_peak_raw(1:processed_count);
+    all_Z1_peak_s     = all_Z1_peak_s(1:processed_count);
+    T_summary_data    = T_summary_data(1:processed_count, :);
+end
 
-
-    disp(['All files processed for ' uz_label '.']);
+disp(['All files processed for ' uz_label '.']);
 
     % -------------------------
     %% Create tables & save CSV
