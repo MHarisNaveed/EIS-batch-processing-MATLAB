@@ -195,7 +195,7 @@ processed_count = 0;  % Track how many files actually processed
 
             % Use median to reduce outlier effect
             %final_freq = median([freq_c, freq_v1]);
-            final_freq = freq_c
+            final_freq = freq_c;
             final_amp  = median([amp_c,  amp_v1]);  %usless btw
 
 
@@ -324,8 +324,7 @@ processed_count = 0;  % Track how many files actually processed
                 fmt6(Z1_phase_s)
             };
 
-            % --- Append to main variables
-            T_summary_data = [T_summary_data; row];
+         
 
 
 
