@@ -47,6 +47,7 @@ PRESET_VOLTAGE_COLS = [3 4 5 6 7];   % e.g. Uz1..Uz5
 PRESET_CURRENT_COL  = 2;             % Ushunt column
 PRESET_SHUNT_OHMS   = 0.0075;         % shunt resistance, Ohms
 PRESET_SMOOTH_METHOD = '4PSF';        % '4PSF' | 'Moving Average' | 'Savitzky-Golay' | 'Low-pass Butterworth'
+PRESET_ZERO_CROSS_TRIM = true;        % enable/disable extract_complete_cycles step
 
 % Read row 5 (TraceName) of the first CSV for real column labels
 sampleFile   = fullfile(folder, files(1).name);
@@ -55,7 +56,7 @@ headerNames  = cellfun(@(x) strtrim(string(x)), traceRow, 'UniformOutput', false
 headerNames  = [headerNames{:}];   % 1xN string array, index N matches T column N
 nColsAvail   = numel(headerNames);
 
-[col_list, current_col_idx, shunt_ohms, SMOOTH_METHOD] = select_columns_gui(headerNames, PRESET_VOLTAGE_COLS, PRESET_CURRENT_COL, PRESET_SHUNT_OHMS, PRESET_SMOOTH_METHOD);
+[col_list, current_col_idx, shunt_ohms, SMOOTH_METHOD, ZERO_CROSS_TRIM] = select_columns_gui(headerNames, PRESET_VOLTAGE_COLS, PRESET_CURRENT_COL, PRESET_SHUNT_OHMS, PRESET_SMOOTH_METHOD, PRESET_ZERO_CROSS_TRIM);
 
 if isempty(col_list)
     disp('No voltage columns selected. Exiting.');
@@ -240,9 +241,13 @@ processed_count = 0;  % Track how many files actually processed
                        % Apply selected smoothing method
             [current_s, voltage1_s] = apply_smoothing(current, voltage1, t, freq_c, SMOOTH_METHOD);
 
-            % Extract complete cycles using current as master clock
-            [current_s, voltage1_s, cycle_idx] = extract_complete_cycles(current_s, voltage1_s);
-            t_s = t(cycle_idx);
+                        % Extract complete cycles using current as master clock (optional)
+            if ZERO_CROSS_TRIM
+                [current_s, voltage1_s, cycle_idx] = extract_complete_cycles(current_s, voltage1_s);
+                t_s = t(cycle_idx);
+            else
+                t_s = t;
+            end
 
             % ---- NEW: save smoothed FFT peak plot ----
             if SAVE_FFT_SM
@@ -845,12 +850,12 @@ end
 % ---------------------------------------------
 %% Helper: column selection GUI (voltage checkboxes + current radio)
 % ---------------------------------------------
-function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod] = select_columns_gui(headerNames, presetVoltageCols, presetCurrentCol, presetShuntOhms, presetSmoothMethod)
+function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod, zeroCrossTrim] = select_columns_gui(headerNames, presetVoltageCols, presetCurrentCol, presetShuntOhms, presetSmoothMethod, presetZeroCrossTrim)
 
     nCols = numel(headerNames);
     rowH  = 22;
     listH = rowH * nCols;
-    figH  = 260 + listH;      % panel content + fixed 260px for title/current/shunt/smooth/OK/margins
+    figH  = 290 + listH;        % panel content + fixed 260px for title/current/shunt/smooth/OK/margins
     figH  = max(figH, 500);   % floor, so small column counts don't collapse the window
     figH  = min(figH, 800);   % ceiling
     fig = uifigure('Name','Select Columns', 'Position',[400 200 460 figH]);
@@ -871,7 +876,7 @@ function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod] = select_co
             'Value', ismember(k, presetVoltageCols));
     end
 
-    
+
     uilabel(fig, 'Text','Current / shunt column (pick one):', ...
         'Position',[20 185 380 22], 'FontWeight','bold');
     currentDD = uidropdown(fig, ...
@@ -887,15 +892,18 @@ function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod] = select_co
         'Position',[220 120 150 26]);
 
     uilabel(fig, 'Text','Smoothing method:', ...
-        'Position',[20 80 140 22], 'FontWeight','bold');
+'Position',[20 80 140 22], 'FontWeight','bold');
     smoothDD = uidropdown(fig, ...
-        'Items', {'4PSF', 'Moving Average', 'Savitzky-Golay', 'Low-pass Butterworth'}, ...
-        'Value', presetSmoothMethod, ...
-        'Position',[160 80 220 26]);
+'Items', {'4PSF', 'Moving Average', 'Savitzky-Golay', 'Low-pass Butterworth'}, ...
+'Value', presetSmoothMethod, ...
+'Position',[160 80 220 26]);
+
+    zeroCrossCB = uicheckbox(fig, 'Text','Enable zero-crossing cycle trim', ...
+        'Position',[20 50 350 22], 'Value', presetZeroCrossTrim);
 
     okPressed = false;
-    uibutton(fig, 'Text','OK', 'Position',[160 20 100 28], ...
-        'ButtonPushedFcn', @(~,~) okCallback());
+    uibutton(fig, 'Text','OK', 'Position',[160 15 100 28], ...
+'ButtonPushedFcn', @(~,~) okCallback());
 
     uiwait(fig);
 
@@ -909,14 +917,16 @@ function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod] = select_co
         selectedCurrentCol = presetCurrentCol;
         shuntOhms = presetShuntOhms;
         smoothMethod = presetSmoothMethod;
-    else
+        zeroCrossTrim = presetZeroCrossTrim;
+else
         selectedCols = find(arrayfun(@(cb) cb.Value, voltageCB));
         selectedCols = selectedCols(:)';   % force row vector so `for col_idx = col_list` iterates one column at a time
         ddStr = currentDD.Value;
         selectedCurrentCol = sscanf(ddStr, '%d:');
         shuntOhms = shuntField.Value;
         smoothMethod = smoothDD.Value;
-    end
+        zeroCrossTrim = zeroCrossCB.Value;
+end
 
     if isvalid(fig)
         close(fig);
