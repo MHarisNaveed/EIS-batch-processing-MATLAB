@@ -14,17 +14,28 @@ end
 
 % Create output folder
 out_folder = fullfile(folder, 'solution');
-if ~exist(out_folder, 'dir')
-    mkdir(out_folder);
+
+% If 'solution' already exists, append the current date and time
+if exist(out_folder, 'dir')
+    % Formats as solution_20260901_185422 (YYYYMMDD_HHMMSS)
+    timestamp = datestr(now, 'yyyymmdd_HHMMSS'); 
+    out_folder = fullfile(folder, ['solution_' timestamp]);
 end
+
+% Create the directory
+mkdir(out_folder);
 
 % Get all CSV files in folder
 files = dir(fullfile(folder, '*.csv'));
 if isempty(files)
     error('No CSV files found in selected folder.');
 end
-
-
+% ===========================================================================
+%% FFT Plot saving Toggle
+% ===========================================================================
+SAVE_FFT_RAW  = true;   % save zoomed FFT peak plot (current+voltage) for raw signal
+SAVE_FFT_SM   = true;   % save zoomed FFT peak plot (current+voltage) for smoothed signal
+FFT_ZOOM_BINS = 20;     % bins on each side of the peak to show
 
 % ===========================================================================
 %% Column Selection GUI (voltage channels + current/shunt column)
@@ -209,7 +220,7 @@ processed_count = 0;  % Track how many files actually processed
                 newname = sprintf('%s_%s_%dHz.csv', base, dt_str, abs(round(final_freq)));
                 newpath = fullfile(uz_folder, newname);
             end
-
+[~, base, ~] = fileparts(newname);
              % Duplicate original CSV only once (first channel processed) --
             % all other channels reference the same underlying raw file, so
             % copying it again per channel is redundant.
@@ -232,7 +243,11 @@ processed_count = 0;  % Track how many files actually processed
             [current_s, voltage1_s, cycle_idx] = extract_complete_cycles(current_s, voltage1_s);
             t_s = t(cycle_idx);
 
-
+            % ---- NEW: save smoothed FFT peak plot ----
+            if SAVE_FFT_SM
+                plot_fft_peak_pair(current_s, voltage1_s, t_s, uz_label, 'SMOOTHED', ...
+                    fullfile(uz_folder, [base '_fft_smoothed.png']), FFT_ZOOM_BINS);
+            end
 
 
     % ============================================================================================
@@ -263,12 +278,16 @@ processed_count = 0;  % Track how many files actually processed
             grid on;
 
             % Save plot as JPG + FIG
-            [~, base, ~] = fileparts(newname);
+           
             saveas(gcf, fullfile(uz_folder, [base, '_plot.jpg']));
             savefig(gcf, fullfile(uz_folder, [base, '_plot.fig']));
             close(gcf);
 
-
+            % ---- NEW: save raw FFT peak plot ----
+            if SAVE_FFT_RAW
+                plot_fft_peak_pair(current, voltage1, t, uz_label, 'RAW', ...
+                    fullfile(uz_folder, [base '_fft_raw.png']), FFT_ZOOM_BINS);
+            end
 
 
     % ============================================================================================
@@ -891,7 +910,87 @@ function [selectedCols, selectedCurrentCol, shuntOhms] = select_columns_gui(head
     end
 end
 
+% ---------------------------------------------
+%% Function: Save zoomed FFT peak plot (current + voltage)
+% ---------------------------------------------
+function plot_fft_peak_pair(current_sig, voltage_sig, t, uz_label, pass_label, savepath, zoom_bins)
 
+    t = t(:);
+    current_sig = current_sig(:);
+    voltage_sig = voltage_sig(:);
+
+    fig = figure('Name', [pass_label ' FFT -- ' uz_label], 'NumberTitle','off', ...
+                 'Color','w', 'Position',[100 100 900 700], 'Visible','off');
+
+    % ---- Current subplot ----
+    subplot(2,1,1);
+    [f_c, amp_c, idx_c, binw_c] = local_fft_amp(current_sig, t);
+    zoom_and_stem(f_c, amp_c, idx_c, zoom_bins, ...
+        sprintf('%s Current FFT -- bin width=%.4f Hz', pass_label, binw_c));
+    ylabel('Amplitude');
+
+    % ---- Voltage subplot ----
+    subplot(2,1,2);
+    [f_v, amp_v, idx_v, binw_v] = local_fft_amp(voltage_sig, t);
+    zoom_and_stem(f_v, amp_v, idx_v, zoom_bins, ...
+        sprintf('%s %s FFT -- bin width=%.4f Hz', pass_label, uz_label, binw_v));
+    xlabel('Frequency (Hz)');
+    ylabel('Amplitude');
+
+    sgtitle(sprintf('%s FFT Peak -- %s', pass_label, uz_label), 'FontWeight','bold');
+
+    % ---- Save ----
+    saveas(fig, savepath);
+    
+    % Also save as .fig (same name, .fig extension instead of .png)
+    [fig_dir, fig_base, ~] = fileparts(savepath);
+    set(fig, 'Visible', 'on');   
+    savefig(fig, fullfile(fig_dir, [fig_base '.fig']));
+    
+    close(fig);
+
+end
+
+% -- Local helper: compute one-sided FFT amplitude spectrum + peak bin --
+function [f, amp, peak_idx, bin_width] = local_fft_amp(signal, t)
+    N     = length(signal);
+    dt    = mean(diff(t));
+    Fs    = 1/dt;
+    halfN = floor(N/2);
+
+    signal_noDC = signal - mean(signal);
+    Y = fft(signal_noDC);
+
+    f = Fs*(0:halfN)/N;
+    bin_width = Fs / N;
+
+    Y_pos = Y(1:halfN+1);
+    amp = abs(Y_pos)/N;
+    amp(2:end-1) = 2*amp(2:end-1);
+
+    % Peak bin, ignoring DC (index 1)
+    [~, rel_idx] = max(amp(2:end));
+    peak_idx = rel_idx + 1;
+end
+
+% -- Local helper: zoom to peak and draw stem plot with peak circled --
+function zoom_and_stem(f, amp, peak_idx, zoom_bins, plot_title)
+    n = length(f);
+    lo = max(1, peak_idx - zoom_bins);
+    hi = min(n, peak_idx + zoom_bins);
+
+    stem(f(lo:hi), amp(lo:hi), 'filled', 'Color', [0.00 0.45 0.74], ...
+        'LineWidth', 1.2, 'MarkerSize', 5, 'DisplayName', 'Spectrum bins');
+    hold on;
+    plot(f(peak_idx), amp(peak_idx), 'ro', 'MarkerSize', 10, 'LineWidth', 1.5, ...
+        'DisplayName', 'Detected peak bin');
+    hold off;
+
+    xlim([f(lo) f(hi)]);
+    title(plot_title, 'FontSize', 10, 'FontWeight', 'bold');
+    legend('Location', 'best', 'FontSize', 8);
+    grid on; box on;
+end
 
 % ---------------------------------------------
 %% Frequency & Amplitude function: FFT estimate
