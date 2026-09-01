@@ -46,6 +46,7 @@ FFT_ZOOM_BINS = 20;     % bins on each side of the peak to show
 PRESET_VOLTAGE_COLS = [3 4 5 6 7];   % e.g. Uz1..Uz5
 PRESET_CURRENT_COL  = 2;             % Ushunt column
 PRESET_SHUNT_OHMS   = 0.0075;         % shunt resistance, Ohms
+PRESET_SMOOTH_METHOD = '4PSF';        % '4PSF' | 'Moving Average' | 'Savitzky-Golay' | 'Low-pass Butterworth'
 
 % Read row 5 (TraceName) of the first CSV for real column labels
 sampleFile   = fullfile(folder, files(1).name);
@@ -54,7 +55,7 @@ headerNames  = cellfun(@(x) strtrim(string(x)), traceRow, 'UniformOutput', false
 headerNames  = [headerNames{:}];   % 1xN string array, index N matches T column N
 nColsAvail   = numel(headerNames);
 
-[col_list, current_col_idx, shunt_ohms] = select_columns_gui(headerNames, PRESET_VOLTAGE_COLS, PRESET_CURRENT_COL, PRESET_SHUNT_OHMS);
+[col_list, current_col_idx, shunt_ohms, SMOOTH_METHOD] = select_columns_gui(headerNames, PRESET_VOLTAGE_COLS, PRESET_CURRENT_COL, PRESET_SHUNT_OHMS, PRESET_SMOOTH_METHOD);
 
 if isempty(col_list)
     disp('No voltage columns selected. Exiting.');
@@ -236,8 +237,8 @@ processed_count = 0;  % Track how many files actually processed
     % ============================================================================================
             Fs = 1 / mean(diff(t));
 
-            % 4PSF: fit and reconstruct -- zero edge effects, exact phase
-            [current_s, voltage1_s] = fit_reconstruct_4psf(current, voltage1, t, freq_c);
+                       % Apply selected smoothing method
+            [current_s, voltage1_s] = apply_smoothing(current, voltage1, t, freq_c, SMOOTH_METHOD);
 
             % Extract complete cycles using current as master clock
             [current_s, voltage1_s, cycle_idx] = extract_complete_cycles(current_s, voltage1_s);
@@ -844,46 +845,56 @@ end
 % ---------------------------------------------
 %% Helper: column selection GUI (voltage checkboxes + current radio)
 % ---------------------------------------------
-function [selectedCols, selectedCurrentCol, shuntOhms] = select_columns_gui(headerNames, presetVoltageCols, presetCurrentCol, presetShuntOhms)
+function [selectedCols, selectedCurrentCol, shuntOhms, smoothMethod] = select_columns_gui(headerNames, presetVoltageCols, presetCurrentCol, presetShuntOhms, presetSmoothMethod)
 
     nCols = numel(headerNames);
     rowH  = 22;
     listH = rowH * nCols;
-    figH  = 200 + listH;          % extra room for title, dropdown, shunt field, button
-    figH  = min(figH, 700);
+    figH  = 260 + listH;      % panel content + fixed 260px for title/current/shunt/smooth/OK/margins
+    figH  = max(figH, 500);   % floor, so small column counts don't collapse the window
+    figH  = min(figH, 800);   % ceiling
     fig = uifigure('Name','Select Columns', 'Position',[400 200 460 figH]);
 
     uilabel(fig, 'Text','Voltage columns (tick all that apply):', ...
         'Position',[20 figH-30 380 22], 'FontWeight','bold');
 
     % Scrollable panel holds the checkboxes so they never overlap the button
-    panelH = figH - 190;   % leaves room for label above + dropdown/shunt/button below
-    panel = uipanel(fig, 'Position',[20 150 380 panelH], 'Scrollable','on');
+       panel_bottom_y = 220;
+    panelH = figH - 30 - panel_bottom_y;
+      panel = uipanel(fig, 'Position',[20 panel_bottom_y 380 panelH], 'Scrollable','on');
 
     voltageCB = gobjects(nCols,1);
     for k = 1:nCols
-        yPos = listH - rowH*k;    % stacked top-down inside the panel's own coords
+        yPos = listH - rowH*k;
         voltageCB(k) = uicheckbox(panel, 'Text', sprintf('%d: %s', k, headerNames(k)), ...
             'Position',[10 yPos 340 22], ...
             'Value', ismember(k, presetVoltageCols));
     end
 
+    
     uilabel(fig, 'Text','Current / shunt column (pick one):', ...
-        'Position',[20 115 380 22], 'FontWeight','bold');
+        'Position',[20 185 380 22], 'FontWeight','bold');
     currentDD = uidropdown(fig, ...
         'Items', arrayfun(@(k) sprintf('%d: %s', k, headerNames(k)), 1:nCols, 'UniformOutput', false), ...
         'Value', sprintf('%d: %s', presetCurrentCol, headerNames(presetCurrentCol)), ...
-        'Position',[20 85 380 26]);
+        'Position',[20 155 380 26]);
 
     uilabel(fig, 'Text','Shunt resistance (Ohm):', ...
-        'Position',[20 50 200 22], 'FontWeight','bold');
+        'Position',[20 120 200 22], 'FontWeight','bold');
     shuntField = uieditfield(fig, 'numeric', ...
         'Value', presetShuntOhms, ...
         'Limits', [eps Inf], ...
-        'Position',[220 50 150 26]);
+        'Position',[220 120 150 26]);
+
+    uilabel(fig, 'Text','Smoothing method:', ...
+        'Position',[20 80 140 22], 'FontWeight','bold');
+    smoothDD = uidropdown(fig, ...
+        'Items', {'4PSF', 'Moving Average', 'Savitzky-Golay', 'Low-pass Butterworth'}, ...
+        'Value', presetSmoothMethod, ...
+        'Position',[160 80 220 26]);
 
     okPressed = false;
-    uibutton(fig, 'Text','OK', 'Position',[160 10 100 28], ...
+    uibutton(fig, 'Text','OK', 'Position',[160 20 100 28], ...
         'ButtonPushedFcn', @(~,~) okCallback());
 
     uiwait(fig);
@@ -893,21 +904,65 @@ function [selectedCols, selectedCurrentCol, shuntOhms] = select_columns_gui(head
         uiresume(fig);
     end
 
-    if ~okPressed
+        if ~okPressed
         selectedCols = [];
         selectedCurrentCol = presetCurrentCol;
         shuntOhms = presetShuntOhms;
+        smoothMethod = presetSmoothMethod;
     else
         selectedCols = find(arrayfun(@(cb) cb.Value, voltageCB));
         selectedCols = selectedCols(:)';   % force row vector so `for col_idx = col_list` iterates one column at a time
         ddStr = currentDD.Value;
         selectedCurrentCol = sscanf(ddStr, '%d:');
         shuntOhms = shuntField.Value;
+        smoothMethod = smoothDD.Value;
     end
 
     if isvalid(fig)
         close(fig);
     end
+end
+
+%__________________________________________________________
+% ---------------------------------------------
+%% Dispatcher: apply selected smoothing method
+% ---------------------------------------------
+function [i_out, v1_out] = apply_smoothing(current, voltage1, t, f0_init, method)
+    switch method
+        case '4PSF'
+            [i_out, v1_out] = fit_reconstruct_4psf(current, voltage1, t, f0_init);
+        case 'Moving Average'
+            [i_out, v1_out] = smooth_moving_average(current, voltage1, t, f0_init);
+        case 'Savitzky-Golay'
+            [i_out, v1_out] = smooth_savgol(current, voltage1, t);
+        case 'Low-pass Butterworth'
+            [i_out, v1_out] = smooth_butterworth(current, voltage1, t, f0_init);
+        otherwise
+            error('Unknown smoothing method: %s', method);
+    end
+end
+
+function [i_out, v1_out] = smooth_moving_average(current, voltage1, t, f0_init)
+    Fs = 1 / mean(diff(t));
+    win = max(3, round(Fs / f0_init / 10));
+    i_out  = movmean(current, win);
+    v1_out = movmean(voltage1, win);
+end
+
+function [i_out, v1_out] = smooth_savgol(current, voltage1, t)
+    order = 3;
+    framelen = 11;
+    i_out  = sgolayfilt(current,  order, framelen);
+    v1_out = sgolayfilt(voltage1, order, framelen);
+end
+
+function [i_out, v1_out] = smooth_butterworth(current, voltage1, t, f0_init)
+    Fs = 1 / mean(diff(t));
+    cutoff = f0_init * 5;
+    cutoff = min(cutoff, 0.9*(Fs/2));
+    [b, a] = butter(4, cutoff/(Fs/2), 'low');
+    i_out  = filtfilt(b, a, current);
+    v1_out = filtfilt(b, a, voltage1);
 end
 
 % ---------------------------------------------
