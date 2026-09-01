@@ -1434,3 +1434,5 @@ function [i_out, v1_out, idx_range] = extract_complete_cycles(current_s, voltage
     i_out     = current_s(idx_range);
     v1_out    = voltage1_s(idx_range);
 end
+
+%-
