@@ -1,6 +1,6 @@
 # Theory & Background
 
-This document explains the electrochemical and signal-processing concepts behind the script, for readers who need the "why" behind the math in the [API Reference](API_REFERENCE.md).
+This document explains the electrochemical and signal-processing concepts behind the script, for readers who need the "why" behind the math in the [Technical Reference](Techinical_Reference.md).
 
 ## Table of Contents
 
@@ -73,7 +73,7 @@ Current isn't measured directly — it's inferred from the voltage drop across a
 I(t) = V_shunt(t) / (−R_shunt)
 ```
 
-The negative sign accounts for the differential wiring polarity of the shunt in this specific hardware setup — with the shunt wired the other way, the sign would flip. If your measured current appears inverted relative to expectations, this is the first place to check (see [API Reference §14](API_REFERENCE.md#14-open-questions--ambiguities)).
+The negative sign accounts for the differential wiring polarity of the shunt in this specific hardware setup — with the shunt wired the other way, the sign would flip. If your measured current appears inverted relative to expectations, this is the first place to check (see [Technical Reference §14](Techinical_Reference.md#14-open-questions--ambiguities)).
 
 ## Smoothing / reconstruction methods
 
@@ -113,7 +113,7 @@ In a multi-channel test rig measuring several voltage taps against a common refe
 Z_peak_corrected = conj(Z_peak)
 ```
 
-This is a **hardware-specific assumption**, not something derived from the data — it assumes a specific, consistent wiring pattern across the test rig. If your setup wires channels differently, this correction will need to be adjusted or removed (see [API Reference §14](API_REFERENCE.md#14-open-questions--ambiguities)).
+This is a **hardware-specific assumption**, not something derived from the data — it assumes a specific, consistent wiring pattern across the test rig. If your setup wires channels differently, this correction will need to be adjusted or removed (see [Technical Reference §14](Techinical_Reference.md#14-open-questions--ambiguities)).
 
 ## Cycle trimming
 
