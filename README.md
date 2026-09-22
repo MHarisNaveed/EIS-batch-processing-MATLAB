@@ -59,7 +59,7 @@ The script expects CSV exports with a fixed layout:
 | 2 | Shunt voltage `V_shunt` (used to derive current) |
 | 3…N | Individual voltage channels `Uz1, Uz2, … Uz(N-2)` |
 
-All CSV files in a given run **must share the same column layout**. See [Techinical Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md#4-input-data-format-csv) for full details, validation rules, and edge-case handling.
+All CSV files in a given run **must share the same column layout**. See [Technical Reference](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/Techinical_Reference.md#4-input-data-format-csv) for full details, validation rules, and edge-case handling.
 
 ## Quick start
 
@@ -75,7 +75,7 @@ All CSV files in a given run **must share the same column layout**. See [Techini
 4. The script processes each file for each selected channel, then opens interactive combined Bode and Nyquist figures.
 5. All outputs are written to `solution/` (or `solution_YYYYMMDD_HHMMSS/` if `solution` already exists) inside your source folder.
 
-See [Examples](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Examples.md) for a full walkthrough with expected file layouts and output structure.
+See [Examples](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/EXAMPLES.md) for a full walkthrough with expected file layouts and output structure.
 
 ## Configuration
 
@@ -93,7 +93,7 @@ PRESET_SMOOTH_METHOD  = '4PSF';
 PRESET_ZERO_CROSS_TRIM = true;
 ```
 
-These only set the **defaults pre-filled in the GUI** — every run can override them interactively. Full parameter reference: [Techinical Reference § Constants](docs/Techinical_Reference.md#10-constants--configurable-parameters).
+These only set the **defaults pre-filled in the GUI** — every run can override them interactively. Full parameter reference: [Technical Reference § Constants](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/Techinical_Reference.md#10-constants--configurable-parameters).
 
 ## Pipeline overview
 
@@ -119,7 +119,7 @@ Combined multi-channel Bode plot (interactive)
 Combined multi-channel Nyquist plot (interactive)
 ```
 
-Full function-level detail: [Techinical Reference § Function Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md#5-function-by-function-reference).
+Full function-level detail: [Technical Reference § Function Reference](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/Techinical_Reference.md#5-function-by-function-reference).
 
 ## Outputs
 
@@ -137,9 +137,9 @@ At the run root (`solution/`):
 
 ## Documentation
 
-- **[Techinical Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md)** — every function, GUI element, constant, formula, and error-handling path.
-- **[Theory & Background](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/THEORY.md)** — EIS fundamentals, the impedance/phase math, the 4PSF algorithm, and why polarity correction exists.
-- **[Examples](docs/EXAMPLES.md)** — annotated end-to-end walkthrough and output structure.
+- **[Technical Reference](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/Techinical_Reference.md)** — every function, GUI element, constant, formula, and error-handling path.
+- **[Theory & Background](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/THEORY.md)** — EIS fundamentals, the impedance/phase math, the 4PSF algorithm, and why polarity correction exists.
+- **[Examples](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/EXAMPLES.md)** — annotated end-to-end walkthrough and output structure.
 
 ## Known limitations
 
@@ -148,7 +148,7 @@ At the run root (`solution/`):
 - Selecting column 1 or 2 as a "voltage channel" produces invalid channel labels (`Uz-1`, `Uz0`).
 - `lockin_reconstruct` is implemented but not wired into the smoothing dispatcher — it's dead code, available if you want to add it as a fifth method.
 
-See [Techinical Reference § Open Questions](docs/Techinical_Reference.md#14-open-questions--ambiguities) for the complete list.
+See [Technical Reference § Open Questions](Current%20%5BCode%5D/Current%20Main%20Code_Matlab%20Signal%20Processing%20And%20EIS/Documentation/Techinical_Reference.md#14-open-questions--ambiguities) for the complete list.
 
 ---
 
