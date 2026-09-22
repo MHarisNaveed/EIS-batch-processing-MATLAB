@@ -75,7 +75,7 @@ All CSV files in a given run **must share the same column layout**. See [Techini
 4. The script processes each file for each selected channel, then opens interactive combined Bode and Nyquist figures.
 5. All outputs are written to `solution/` (or `solution_YYYYMMDD_HHMMSS/` if `solution` already exists) inside your source folder.
 
-See [Examples](docs/EXAMPLES.md) for a full walkthrough with expected file layouts and output structure.
+See [Examples](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Examples.md) for a full walkthrough with expected file layouts and output structure.
 
 ## Configuration
 
@@ -119,7 +119,7 @@ Combined multi-channel Bode plot (interactive)
 Combined multi-channel Nyquist plot (interactive)
 ```
 
-Full function-level detail: [Techinical Reference § Function Reference](docs/Techinical_Reference.md#5-function-by-function-reference).
+Full function-level detail: [Techinical Reference § Function Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md#5-function-by-function-reference).
 
 ## Outputs
 
@@ -137,8 +137,8 @@ At the run root (`solution/`):
 
 ## Documentation
 
-- **[Techinical Reference](docs/Techinical_Reference.md)** — every function, GUI element, constant, formula, and error-handling path.
-- **[Theory & Background](docs/THEORY.md)** — EIS fundamentals, the impedance/phase math, the 4PSF algorithm, and why polarity correction exists.
+- **[Techinical Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md)** — every function, GUI element, constant, formula, and error-handling path.
+- **[Theory & Background](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/THEORY.md)** — EIS fundamentals, the impedance/phase math, the 4PSF algorithm, and why polarity correction exists.
 - **[Examples](docs/EXAMPLES.md)** — annotated end-to-end walkthrough and output structure.
 
 ## Known limitations
