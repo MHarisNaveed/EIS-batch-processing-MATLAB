@@ -59,7 +59,7 @@ The script expects CSV exports with a fixed layout:
 | 2 | Shunt voltage `V_shunt` (used to derive current) |
 | 3…N | Individual voltage channels `Uz1, Uz2, … Uz(N-2)` |
 
-All CSV files in a given run **must share the same column layout**. See [Techinical Reference](docs/Techinical_Reference.md#4-input-data-format-csv) for full details, validation rules, and edge-case handling.
+All CSV files in a given run **must share the same column layout**. See [Techinical Reference](Current [Code]/Current Main Code_Matlab Signal Processing And EIS/Documentation/Techinical_Reference.md#4-input-data-format-csv) for full details, validation rules, and edge-case handling.
 
 ## Quick start
 
